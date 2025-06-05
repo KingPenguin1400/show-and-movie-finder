@@ -8,7 +8,7 @@
       "sizes": "512x512"
     }
   ],
-  "start_url": ".",
+  "start_url": "https://kingpenguin1400.github.io/show-and-movie-finder/",
   "background_color": "#b833d6",
   "display": "standalone",
   "scope": "/",
