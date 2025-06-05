@@ -15,76 +15,178 @@
 const TMDB_API_KEY = '1e6c49b4cc57e66a33167920ed6ce4cb';
 const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
 
-async function findMovies() {
-    console.log('findMovies function called');
-    const selectedGenres = Array.from(document.querySelectorAll('.genre-btn.selected'))
-        .map(button => button.textContent);
-    
-    console.log('Selected genres:', selectedGenres);
-    
-    if (selectedGenres.length === 0) {
-        alert('Please select at least one genre!');
-        return;
-    }
+// Cache for genre data
+let genreCache = null;
+let currentPage = 1;
+let currentSearchType = null;
+let currentSearchParams = null;
 
+async function getGenres() {
+    if (genreCache) return genreCache;
+    
     try {
-        console.log('Fetching genre list from TMDB...');
-        // First, get the genre IDs for the selected genres
-        const genreResponse = await fetch(`${TMDB_BASE_URL}/genre/movie/list?api_key=${TMDB_API_KEY}`);
-        const genreData = await genreResponse.json();
-        console.log('Genre data received:', genreData);
-        
-        const selectedGenreIds = selectedGenres.map(genre => {
-            const foundGenre = genreData.genres.find(g => g.name.toLowerCase() === genre.toLowerCase());
-            return foundGenre ? foundGenre.id : null;
-        }).filter(id => id !== null);
-
-        console.log('Selected genre IDs:', selectedGenreIds);
-
-        if (selectedGenreIds.length === 0) {
-            alert('No matching genres found in the database.');
-            return;
-        }
-
-        console.log('Fetching movies from TMDB...');
-        // Get movies with the selected genres
-        const moviesResponse = await fetch(
-            `${TMDB_BASE_URL}/discover/movie?api_key=${TMDB_API_KEY}&with_genres=${selectedGenreIds.join(',')}&sort_by=vote_average.desc&vote_count.gte=1000`
-        );
-        const moviesData = await moviesResponse.json();
-        console.log('Movies data received:', moviesData);
-
-        // Display results
-        const resultsDiv = document.getElementById('results');
-        resultsDiv.innerHTML = '';
-
-        if (moviesData.results.length === 0) {
-            resultsDiv.innerHTML = '<p>No movies found matching your selected genres. Try different combinations!</p>';
-            return;
-        }
-
-        moviesData.results.forEach(movie => {
-            const movieElement = document.createElement('div');
-            movieElement.className = 'result-item';
-            movieElement.innerHTML = `
-                <h3>${movie.title}</h3>
-                <p>Release Date: ${movie.release_date}</p>
-                <p>Rating: ${(movie.vote_average / 2).toFixed(1)}/5</p>
-                <p>Overview: ${movie.overview}</p>
-                ${movie.poster_path ? `<img src="https://image.tmdb.org/t/p/w200${movie.poster_path}" alt="${movie.title} poster">` : ''}
-            `;
-            resultsDiv.appendChild(movieElement);
-        });
+        const response = await fetch(`${TMDB_BASE_URL}/genre/movie/list?api_key=${TMDB_API_KEY}`);
+        const data = await response.json();
+        genreCache = data.genres;
+        return genreCache;
     } catch (error) {
-        console.error('Error fetching data:', error);
-        alert('Error fetching data. Please try again later.');
+        console.error('Error fetching genres:', error);
+        throw error;
     }
 }
 
+async function searchSimilarMovies() {
+    const searchInput = document.getElementById('movieSearch');
+    const movieTitle = searchInput.value.trim();
+    
+    if (!movieTitle) {
+        alert('Please enter a movie title');
+        return;
+    }
+
+    currentPage = 1;
+    currentSearchType = 'similar';
+    
+    try {
+        // First, search for the movie to get its ID
+        const searchResponse = await fetch(
+            `${TMDB_BASE_URL}/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(movieTitle)}&page=1`
+        );
+        const searchData = await searchResponse.json();
+        
+        if (searchData.results.length === 0) {
+            document.getElementById('results').innerHTML = '<p>No movies found matching your search. Please try a different title.</p>';
+            return;
+        }
+
+        // Get the first movie's ID
+        const movieId = searchData.results[0].id;
+        currentSearchParams = { movieId };
+        
+        // Get similar movies
+        const similarResponse = await fetch(
+            `${TMDB_BASE_URL}/movie/${movieId}/similar?api_key=${TMDB_API_KEY}&page=${currentPage}`
+        );
+        const similarData = await similarResponse.json();
+        
+        displayMovies(similarData.results);
+        updateLoadMoreButton(similarData);
+    } catch (error) {
+        console.error('Error:', error);
+        document.getElementById('results').innerHTML = `<p>Error: ${error.message}. Please try again later.</p>`;
+    }
+}
+
+async function findMovies() {
+    const selectedGenres = Array.from(document.querySelectorAll('.genre-btn.selected'))
+        .map(button => button.textContent);
+    
+    if (selectedGenres.length === 0) {
+        document.getElementById('results').innerHTML = '<p>Please select at least one genre!</p>';
+        return;
+    }
+
+    currentPage = 1;
+    currentSearchType = 'genres';
+    
+    try {
+        const genres = await getGenres();
+        
+        const selectedGenreIds = selectedGenres.map(genre => {
+            const foundGenre = genres.find(g => g.name.toLowerCase() === genre.toLowerCase());
+            if (!foundGenre) {
+                console.warn(`Genre not found: ${genre}`);
+            }
+            return foundGenre ? foundGenre.id : null;
+        }).filter(id => id !== null);
+
+        if (selectedGenreIds.length === 0) {
+            document.getElementById('results').innerHTML = '<p>No matching genres found in the database. Please try different genres.</p>';
+            return;
+        }
+
+        currentSearchParams = { genreIds: selectedGenreIds };
+        
+        const moviesResponse = await fetch(
+            `${TMDB_BASE_URL}/discover/movie?api_key=${TMDB_API_KEY}&with_genres=${selectedGenreIds.join(',')}&sort_by=vote_average.desc&vote_count.gte=1000&language=en-US&page=${currentPage}`
+        );
+        
+        if (!moviesResponse.ok) {
+            throw new Error(`HTTP error! status: ${moviesResponse.status}`);
+        }
+        
+        const moviesData = await moviesResponse.json();
+        displayMovies(moviesData.results);
+        updateLoadMoreButton(moviesData);
+    } catch (error) {
+        console.error('Error:', error);
+        document.getElementById('results').innerHTML = `<p>Error: ${error.message}. Please try again later.</p>`;
+    }
+}
+
+async function loadMoreMovies() {
+    if (!currentSearchType || !currentSearchParams) return;
+    
+    currentPage++;
+    const resultsDiv = document.getElementById('results');
+    
+    try {
+        let response;
+        if (currentSearchType === 'similar') {
+            response = await fetch(
+                `${TMDB_BASE_URL}/movie/${currentSearchParams.movieId}/similar?api_key=${TMDB_API_KEY}&page=${currentPage}`
+            );
+        } else {
+            response = await fetch(
+                `${TMDB_BASE_URL}/discover/movie?api_key=${TMDB_API_KEY}&with_genres=${currentSearchParams.genreIds.join(',')}&sort_by=vote_average.desc&vote_count.gte=1000&language=en-US&page=${currentPage}`
+            );
+        }
+        
+        const data = await response.json();
+        displayMovies(data.results, true);
+        updateLoadMoreButton(data);
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Error loading more movies. Please try again.');
+    }
+}
+
+function displayMovies(movies, append = false) {
+    const resultsDiv = document.getElementById('results');
+    if (!append) {
+        resultsDiv.innerHTML = '';
+    }
+
+    if (movies.length === 0) {
+        if (!append) {
+            resultsDiv.innerHTML = '<p>No movies found. Try different criteria!</p>';
+        }
+        return;
+    }
+
+    movies.forEach(movie => {
+        const movieElement = document.createElement('div');
+        movieElement.className = 'result-item';
+        movieElement.innerHTML = `
+            <div class="movie-content">
+                <h3>${movie.title}</h3>
+                <p>Release Date: ${movie.release_date || 'Unknown'}</p>
+                <p>Rating: ${(movie.vote_average / 2).toFixed(1)}/5</p>
+                <p>Overview: ${movie.overview || 'No overview available.'}</p>
+            </div>
+            ${movie.poster_path ? `<img src="https://image.tmdb.org/t/p/w200${movie.poster_path}" alt="${movie.title} poster">` : ''}
+        `;
+        resultsDiv.appendChild(movieElement);
+    });
+}
+
+function updateLoadMoreButton(data) {
+    const loadMoreBtn = document.getElementById('loadMoreBtn');
+    loadMoreBtn.style.display = data.page < data.total_pages ? 'block' : 'none';
+}
+
 function toggleGenre(button) {
-    console.log('Toggle genre clicked:', button.textContent);
     button.classList.toggle('selected');
-    console.log('Button selected state:', button.classList.contains('selected'));
 }
 
 function findMovies() {
