@@ -6,7 +6,7 @@
 }
 
 body {
-    background-color: #f0f2f5;
+    background: linear-gradient(135deg, #f0f2f5 0%, #33b95b 100%);
     min-height: 100vh;
     display: flex;
     justify-content: center;
@@ -27,6 +27,7 @@ body {
 h1 {
     color: #1a1a1a;
     margin-bottom: 2rem;
+    font-weight: bolder;
 }
 
 .search-section {

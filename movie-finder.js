@@ -187,42 +187,4 @@ function updateLoadMoreButton(data) {
 
 function toggleGenre(button) {
     button.classList.toggle('selected');
-}
-
-function findMovies() {
-    const selectedGenres = Array.from(document.querySelectorAll('.genre-btn.selected'))
-        .map(button => button.textContent);
-    
-    if (selectedGenres.length === 0) {
-        alert('Please select at least one genre!');
-        return;
-    }
-
-    // Filter movies based on selected genres
-    const matchingMovies = movies.filter(movie => 
-        selectedGenres.some(genre => movie.genres.includes(genre))
-    );
-
-    // Sort by rating
-    matchingMovies.sort((a, b) => b.rating - a.rating);
-
-    // Display results
-    const resultsDiv = document.getElementById('results');
-    resultsDiv.innerHTML = '';
-
-    if (matchingMovies.length === 0) {
-        resultsDiv.innerHTML = '<p>No movies found matching your selected genres. Try different combinations!</p>';
-        return;
-    }
-
-    matchingMovies.forEach(movie => {
-        const movieElement = document.createElement('div');
-        movieElement.className = 'result-item';
-        movieElement.innerHTML = `
-            <h3>${movie.title}</h3>
-            <p>Genres: ${movie.genres.join(', ')}</p>
-            <p>Rating: ${movie.rating}/10</p>
-        `;
-        resultsDiv.appendChild(movieElement);
-    });
 } 
