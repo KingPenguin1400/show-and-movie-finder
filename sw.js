@@ -1,4 +1,4 @@
-self.addEventListener(install e => {
+/*self.addEventListener(install e => {
   e.waitUntil(
     caches.open("static").then(cache => {
       return cache.addAll(["./"]);
@@ -12,4 +12,12 @@ self.addEventListener("fetch" e => {
       return responce || fetch(e.request);
     })
   );
+});*/
+
+// This code executes in its own worker or thread
+self.addEventListener("install", event => {
+   console.log("Service worker installed");
+});
+self.addEventListener("activate", event => {
+   console.log("Service worker activated");
 });
