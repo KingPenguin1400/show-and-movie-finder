@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Show Finder</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <button onclick="location.href='index.html'" class="back-btn">← Back</button>
+    <div class="container">
+        <h1>Show Finder</h1>
+        <p>Select your favorite genres:</p>
+        <div class="genre-list" id="genreList">
+            <button class="genre-btn" onclick="toggleGenre(this)">Action</button>
+            <button class="genre-btn" onclick="toggleGenre(this)">Comedy</button>
+            <button class="genre-btn" onclick="toggleGenre(this)">Drama</button>
+            <button class="genre-btn" onclick="toggleGenre(this)">Sci-Fi</button>
+            <button class="genre-btn" onclick="toggleGenre(this)">Thriller</button>
+            <button class="genre-btn" onclick="toggleGenre(this)">Romance</button>
+            <button class="genre-btn" onclick="toggleGenre(this)">Horror</button>
+            <button class="genre-btn" onclick="toggleGenre(this)">Fantasy</button>
+            <button class="genre-btn" onclick="toggleGenre(this)">Crime</button>
+            <button class="genre-btn" onclick="toggleGenre(this)">Mystery</button>
+        </div>
+        <button class="choice-btn" onclick="findShows()">Find Shows</button>
+        <div id="results" class="results"></div>
+    </div>
+    <script src="show-finder.js"></script>
+</body>
+</html> 
