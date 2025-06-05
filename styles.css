@@ -6,7 +6,7 @@
 }
 
 body {
-    background: linear-gradient(135deg, #f0f2f5 0%, #33b95b 100%);
+    background: linear-gradient(135deg, #8000ff 0%, #d900ff 100%);
     min-height: 100vh;
     display: flex;
     justify-content: center;
@@ -14,14 +14,31 @@ body {
 }
 
 .container {
-    background-color: white;
+    /*background-color: white;*/
     padding: 2rem;
     border-radius: 10px;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
     text-align: center;
-    max-width: 800px;
+    max-width: 600px;
     width: 90%;
     margin: 2rem auto;
+}
+
+.container1 {
+    padding: 2rem;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    text-align: center;
+    min-width: 300px;
+    max-width: 500px;
+    width: 80%;
+    height: 30%;
+    max-height: 465px;
+    margin: 2rem;
+}
+
+.container h1, .container p{
+    color: #ffffff;
 }
 
 h1 {
@@ -166,6 +183,13 @@ h1 {
 #loadMoreBtn {
     margin-top: 1rem;
     width: 100%;
+}
+
+.logo {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    margin-bottom: 1rem;
 }
 
 @media (min-width: 768px) {
