@@ -1,0 +1,18 @@
+{
+  "short_name": "Finder",
+  "name": "Show & Movie Finder",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "id": "/?source=pwa",
+  "start_url": "/?source=pwa",
+  "background_color": "#b833d6",
+  "display": "standalone",
+  "scope": "/",
+  "theme_color": "#b833d6",
+  "description": "Find your next favorite Show and Movie"
+}
