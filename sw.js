@@ -19,12 +19,15 @@ self.addEventListener("install", event => {
    console.log("Service worker installed");
 });
 
-event.waitUntil(
+const urlsToCache = ["/", "index.html", "show-finder.html", "movie-finder.html", "show-finder.js", "movie-finder.js", "styles.css", "logo.png"];
+self.addEventListener("install", event => {
+   event.waitUntil(
       caches.open("pwa-assets")
       .then(cache => {
          return cache.addAll(urlsToCache);
       });
-    );
+   );
+});
 
 self.addEventListener("activate", event => {
    console.log("Service worker activated");
