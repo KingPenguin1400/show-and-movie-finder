@@ -261,3 +261,149 @@ h1 {
         flex: 1;
     }
 }
+
+/* Profile Styles */
+.profile-section {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.profile-header {
+    display: flex;
+    align-items: center;
+    gap: 30px;
+    margin-bottom: 30px;
+}
+
+.profile-avatar {
+    text-align: center;
+}
+
+.profile-avatar img {
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+    object-fit: cover;
+    margin-bottom: 10px;
+    border: 3px solid #333;
+}
+
+.profile-info {
+    flex: 1;
+}
+
+.profile-input {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 15px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    font-size: 16px;
+}
+
+.preferences-section,
+.watch-history-section {
+    margin-bottom: 30px;
+}
+
+.preferences-section h2,
+.watch-history-section h2 {
+    margin-bottom: 15px;
+    color: #333;
+}
+
+#watchHistory .result-item {
+    margin-bottom: 20px;
+    padding: 15px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    background-color: #fff;
+}
+
+#watchHistory .result-item:hover {
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+/* Responsive Design */
+@media (max-width: 600px) {
+    .profile-header {
+        flex-direction: column;
+        text-align: center;
+    }
+
+    .profile-avatar img {
+        width: 120px;
+        height: 120px;
+    }
+
+    .profile-info {
+        width: 100%;
+    }
+}
+
+/* Streaming Providers Styles */
+.providers-section {
+    margin: 15px 0;
+    padding: 10px;
+    background-color: #f5f5f5;
+    border-radius: 5px;
+}
+
+.provider-group {
+    margin-bottom: 10px;
+}
+
+.provider-group h4 {
+    margin: 0 0 5px 0;
+    color: #333;
+    font-size: 14px;
+}
+
+.provider-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.provider-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background-color: white;
+    padding: 5px 10px;
+    border-radius: 15px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.provider-item img {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    object-fit: contain;
+}
+
+.provider-item span {
+    font-size: 12px;
+    color: #666;
+}
+
+/* Responsive adjustments */
+@media (max-width: 600px) {
+    .provider-list {
+        gap: 5px;
+    }
+    
+    .provider-item {
+        padding: 3px 8px;
+    }
+    
+    .provider-item img {
+        width: 25px;
+        height: 25px;
+    }
+    
+    .provider-item span {
+        font-size: 11px;
+    }
+}

@@ -11,7 +11,7 @@
   "start_url": "https://kingpenguin1400.github.io/show-and-movie-finder/",
   "background_color": "#b833d6",
   "display": "standalone",
-  "scope": "/",
+  "scope": "https://kingpenguin1400.github.io/show-and-movie-finder/",
   "theme_color": "#b833d6",
   "description": "Find your next favorite Show and Movie"
 }
