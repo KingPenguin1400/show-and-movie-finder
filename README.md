@@ -12,4 +12,4 @@ Discover your next favorite series or film! Tell me what genres you love or show
 ![wwss4](https://raw.githubusercontent.com/KingPenguin1400/show-and-movie-finder/refs/heads/main/screenshots/wwss4.png)
 
 
-made by Cursor
+made by KingPenguin1400 & Cursor (AI)
