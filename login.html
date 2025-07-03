@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Show & Movie Finder</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+    <!-- Add Supabase CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
+</head>
+<body>
+    <!-- Theme Toggle -->
+    <div class="theme-toggle" onclick="toggleTheme()">
+        <div class="toggle-icon sun">
+            <i class="fas fa-sun"></i>
+        </div>
+        <div class="toggle-icon moon">
+            <i class="fas fa-moon"></i>
+        </div>
+    </div>
+
+    <div class="container">
+        <img src="images/logo1.png" alt="Show & Movie Finder Logo" class="logo">
+        
+        <!-- Login Form -->
+        <div id="loginForm" class="auth-form">
+            <h2>Sign In</h2>
+            <div class="alert alert-info text-center">Registering is under construction.<br>Only guest sign-in is available. You can still use watchlist and watch history and other profile features.</div>
+            <div class="guest-login text-center">
+                <button onclick="handleGuest()" class="btn btn-outline-secondary btn-lg">Continue as Guest</button>
+            </div>
+        </div>
+
+        <!-- Register Form -->
+        <div id="registerForm" class="auth-form" style="display: none;">
+            <!-- Registration is disabled -->
+        </div>
+
+        <!-- User Info Section -->
+        <div id="userInfo" style="display: none;">
+            <h2>Welcome!</h2>
+            <p>Logged in as: <span id="userEmail"></span></p>
+            <button onclick="handleLogout()" class="btn btn-danger">Logout</button>
+        </div>
+
+        <div id="errorMessage" class="alert alert-danger mt-3" style="display: none;"></div>
+    </div>
+
+    <style>
+        /* ... existing styles ... */
+        .social-login {
+            margin-top: 20px;
+            text-align: center;
+        }
+        .social-login p {
+            margin-bottom: 10px;
+            color: #666;
+        }
+        .btn-social {
+            width: 100%;
+            margin: 5px 0;
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        .btn-google {
+            background-color: #DB4437;
+        }
+        .btn-github {
+            background-color: #333;
+        }
+        .btn-discord {
+            background-color: #7289DA;
+        }
+        .btn-social:hover {
+            opacity: 0.9;
+        }
+        .btn-social i {
+            font-size: 18px;
+        }
+        #userInfo {
+            text-align: center;
+            padding: 20px;
+        }
+        #userInfo h2 {
+            margin-bottom: 15px;
+        }
+        #userInfo p {
+            margin-bottom: 20px;
+            color: #666;
+        }
+        .btn-danger {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .btn-danger:hover {
+            background-color: #c82333;
+        }
+        .genres-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .form-check {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .form-check input[type="checkbox"] {
+            margin: 0;
+        }
+        .form-check label {
+            margin: 0;
+            cursor: pointer;
+        }
+        .guest-login {
+            margin-top: 20px;
+            text-align: center;
+        }
+        .guest-login p {
+            margin: 10px 0;
+            color: #666;
+        }
+        .btn-outline-secondary {
+            border: 1px solid #6c757d;
+            color: #6c757d;
+            background: transparent;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .btn-outline-secondary:hover {
+            background: #6c757d;
+            color: white;
+        }
+    </style>
+
+    <script>
+        // Initialize Supabase
+        const supabaseUrl = 'https://iqmlaseukgxnrmivvytk.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlxbWxhc2V1a2d4bnJtaXZ2eXRrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk1MTQ0NzksImV4cCI6MjA2NTA5MDQ3OX0.31zQ0O11OmGsz9K-4uD7pENJ-1dt9vRFObNvSo3HXqE';
+        const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+        // Test Supabase connection
+        async function testSupabaseConnection() {
+            try {
+                const { data, error } = await supabaseClient.from('profiles').select('count').limit(1);
+                if (error) {
+                    console.error('Supabase connection test: Not connected', error);
+                    return false;
+                }
+                console.log('Supabase connection test: Connected');
+                return true;
+            } catch (error) {
+                console.error('Supabase connection test: Error', error);
+                return false;
+            }
+        }
+
+        // Initialize the page
+        async function initializePage() {
+            const isConnected = await testSupabaseConnection();
+            if (!isConnected) {
+                alert('Unable to connect to the server. Please refresh the page and try again.');
+                return;
+            }
+        }
+
+        // Call initialize when the page loads
+        document.addEventListener('DOMContentLoaded', initializePage);
+
+        // Global functions for form toggling
+        function toggleForms() {
+            const loginForm = document.getElementById('loginForm');
+            const registerForm = document.getElementById('registerForm');
+            const userInfo = document.getElementById('userInfo');
+            
+            if (loginForm.style.display === 'none') {
+                loginForm.style.display = 'block';
+                registerForm.style.display = 'none';
+            } else {
+                loginForm.style.display = 'none';
+                registerForm.style.display = 'block';
+            }
+            userInfo.style.display = 'none';
+        }
+
+        // Show login form
+        function showLoginForm() {
+            document.getElementById('loginForm').style.display = 'block';
+            document.getElementById('registerForm').style.display = 'none';
+            document.getElementById('userInfo').style.display = 'none';
+        }
+
+        // Show register form
+        function showRegisterForm() {
+            document.getElementById('loginForm').style.display = 'none';
+            document.getElementById('registerForm').style.display = 'block';
+            document.getElementById('userInfo').style.display = 'none';
+        }
+
+        // Global error display function
+        function showError(message) {
+            const errorMessage = document.getElementById('errorMessage');
+            errorMessage.textContent = message;
+            errorMessage.style.display = 'block';
+        }
+
+        // Global login function
+        async function handleLogin() {
+            if (!await testSupabaseConnection()) {
+                alert('Connection error. Please refresh the page and try again.');
+                return;
+            }
+
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+
+            try {
+                console.log('Attempting login for:', email);
+                const { data, error } = await supabaseClient.auth.signInWithPassword({
+                    email: email,
+                    password: password
+                });
+
+                if (error) {
+                    console.error('Login error:', error);
+                    alert(error.message);
+                    return;
+                }
+
+                if (data?.user) {
+                    console.log('Login successful:', data);
+                    localStorage.setItem('currentUser', email);
+                    window.location.href = 'index.html';
+                } else {
+                    console.error('No user data returned');
+                    alert('Login failed. Please try again.');
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                alert('An error occurred during login. Please try again.');
+            }
+        }
+
+        // Global register function
+        async function handleRegister() {
+            if (!await testSupabaseConnection()) {
+                alert('Connection error. Please refresh the page and try again.');
+                return;
+            }
+
+            const email = document.getElementById('registerEmail').value;
+            const password = document.getElementById('registerPassword').value;
+            const username = document.getElementById('username').value;
+            const favoriteGenres = Array.from(document.querySelectorAll('input[name="genre"]:checked')).map(cb => cb.value);
+
+            if (!email || !password || !username) {
+                alert('Please fill in all required fields');
+                return;
+            }
+
+            try {
+                console.log('Starting registration process...');
+                const { data, error } = await supabaseClient.auth.signUp({
+                    email: email,
+                    password: password,
+                    options: {
+                        emailRedirectTo: 'https://wisewatch.github.io/login.html'
+                    }
+                });
+
+                console.log('Registration response:', { data, error });
+
+                if (error) {
+                    console.error('Registration error:', error);
+                    alert(error.message);
+                    return;
+                }
+
+                if (data?.user) {
+                    console.log('Registration successful, user data:', data.user);
+                    
+                    // Create profile in the database
+                    const { error: profileError } = await supabaseClient
+                        .from('profiles')
+                        .insert([
+                            {
+                                id: data.user.id,
+                                email: email,
+                                username: username,
+                                favorite_genres: favoriteGenres,
+                                watchlist: [],
+                                watch_history: []
+                            }
+                        ]);
+
+                    if (profileError) {
+                        console.error('Profile creation error:', profileError);
+                        alert('Account created but profile setup failed. Please contact support.');
+                        return;
+                    }
+
+                    alert('Registration successful! Please check your email for verification link.');
+                    
+                    // Clear the form fields manually
+                    document.getElementById('registerEmail').value = '';
+                    document.getElementById('registerPassword').value = '';
+                    document.getElementById('username').value = '';
+                    document.querySelectorAll('input[name="genre"]:checked').forEach(cb => cb.checked = false);
+                    
+                    // Switch to login form
+                    document.getElementById('loginForm').style.display = 'block';
+                    document.getElementById('registerForm').style.display = 'none';
+                    return;
+                }
+
+                console.error('No user data in response');
+                alert('Registration failed. Please try again.');
+            } catch (error) {
+                console.error('Unexpected error during registration:', error);
+                alert('An unexpected error occurred. Please try again.');
+            }
+        }
+
+        // Social login functions
+        async function handleGoogleLogin() {
+            try {
+                const { data, error } = await supabaseClient.auth.signInWithOAuth({
+                    provider: 'google',
+                    options: {
+                        redirectTo: 'https://wisewatch.github.io/login.html'
+                    }
+                });
+
+                if (error) {
+                    console.error('Google login error:', error);
+                    alert(error.message);
+                }
+            } catch (error) {
+                console.error('Google login error:', error);
+                alert('An error occurred during Google login');
+            }
+        }
+
+        async function handleGithubLogin() {
+            try {
+                const { data, error } = await supabaseClient.auth.signInWithOAuth({
+                    provider: 'github',
+                    options: {
+                        redirectTo: 'https://wisewatch.github.io/login.html'
+                    }
+                });
+
+                if (error) {
+                    console.error('GitHub login error:', error);
+                    alert(error.message);
+                }
+            } catch (error) {
+                console.error('GitHub login error:', error);
+                alert('An error occurred during GitHub login');
+            }
+        }
+
+        async function handleDiscordLogin() {
+            try {
+                const { data, error } = await supabaseClient.auth.signInWithOAuth({
+                    provider: 'discord',
+                    options: {
+                        redirectTo: 'https://wisewatch.github.io/login.html'
+                    }
+                });
+
+                if (error) {
+                    console.error('Discord login error:', error);
+                    alert(error.message);
+                }
+            } catch (error) {
+                console.error('Discord login error:', error);
+                alert('An error occurred during Discord login');
+            }
+        }
+
+        // Handle OAuth callback
+        async function handleOAuthCallback() {
+            const { data: { session }, error } = await supabaseClient.auth.getSession();
+            if (session) {
+                localStorage.setItem('currentUser', session.user.email);
+                window.location.href = 'index.html';
+            }
+        }
+
+        // Check for OAuth callback on page load
+        document.addEventListener('DOMContentLoaded', async () => {
+            await initializePage();
+            await handleOAuthCallback();
+        });
+
+        // Theme toggle functionality
+        function toggleTheme() {
+            const body = document.body;
+            const currentTheme = body.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            
+            body.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+        }
+
+        // Check for saved theme preference
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme) {
+            document.body.setAttribute('data-theme', savedTheme);
+        } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.body.setAttribute('data-theme', 'dark');
+        }
+
+        // Logout function
+        function handleLogout() {
+            // Clear local storage
+            localStorage.clear();
+            
+            // Redirect to login page
+            window.location.replace('login.html');
+        }
+
+        // Check if user is logged in
+        async function checkAuthStatus() {
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (session) {
+                // User is logged in
+                document.getElementById('loginForm').style.display = 'none';
+                document.getElementById('registerForm').style.display = 'none';
+                document.getElementById('userInfo').style.display = 'block';
+                document.getElementById('userEmail').textContent = session.user.email;
+            } else {
+                // User is not logged in
+                document.getElementById('loginForm').style.display = 'block';
+                document.getElementById('registerForm').style.display = 'none';
+                document.getElementById('userInfo').style.display = 'none';
+            }
+        }
+
+        // Update page load handler
+        document.addEventListener('DOMContentLoaded', async () => {
+            await initializePage();
+            await handleOAuthCallback();
+            await checkAuthStatus();
+        });
+
+        // Guest login function
+        function handleGuest() {
+            localStorage.setItem('currentUser', 'Guest');
+            window.location.href = 'index.html';
+        }
+    </script>
+</body>
+</html> 

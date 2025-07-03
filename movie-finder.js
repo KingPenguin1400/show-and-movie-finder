@@ -59,12 +59,24 @@ async function searchSimilarMovies() {
         
         if (searchData.results.length === 0) {
             document.getElementById('movieResults').innerHTML = '<p>No movies found matching your search. Please try a different title.</p>';
+            document.getElementById('searchedMovieInfo').innerHTML = '';
             return;
         }
 
         // Get the first movie's ID
         const movieId = searchData.results[0].id;
         currentSearchParams = { movieId };
+
+        // Fetch full details for the searched movie
+        const detailsResponse = await fetch(
+            `${TMDB_BASE_URL}/movie/${movieId}?api_key=${TMDB_API_KEY}&language=en-US`
+        );
+        const movieDetails = await detailsResponse.json();
+        // Add genre names for display
+        if (movieDetails.genres) {
+            movieDetails.genre_ids = movieDetails.genres.map(g => g.id);
+        }
+        await displaySearchedMovieInfo(movieDetails);
         
         // Get similar movies
         const similarResponse = await fetch(
@@ -77,7 +89,27 @@ async function searchSimilarMovies() {
     } catch (error) {
         console.error('Error:', error);
         document.getElementById('movieResults').innerHTML = `<p>Error: ${error.message}. Please try again later.</p>`;
+        document.getElementById('searchedMovieInfo').innerHTML = '';
     }
+}
+
+// Helper to display the searched movie info
+async function displaySearchedMovieInfo(movie) {
+    const container = document.getElementById('searchedMovieInfo');
+    container.innerHTML = '';
+    const element = await createMovieElement(movie);
+    element.classList.add('searched-movie');
+    // Add a label
+    const label = document.createElement('div');
+    label.className = 'searched-movie-label';
+    label.innerHTML = '<h2>Searched Movie</h2>';
+    container.appendChild(label);
+    container.appendChild(element);
+    // Attach event listeners for searched-movie box
+    const addHistoryBtn = element.querySelector('.add-history-btn');
+    if (addHistoryBtn) addHistoryBtn.onclick = () => window.addToWatchHistory(movie);
+    const addWatchlistBtn = element.querySelector('.watchlist-btn');
+    if (addWatchlistBtn) addWatchlistBtn.onclick = () => window.addToWatchlist('movie', movie);
 }
 
 async function findMovies() {
@@ -108,11 +140,42 @@ async function findMovies() {
             return;
         }
 
-        currentSearchParams = { genreIds: selectedGenreIds };
+        // Get filter values
+        const minYear = document.getElementById('minYear').value;
+        const maxYear = document.getElementById('maxYear').value;
+        const minRating = document.getElementById('ratingFilter').value;
+        const ageRating = document.getElementById('ageRatingFilter').value;
+
+        // Build the API URL with filters
+        let apiUrl = `${TMDB_BASE_URL}/discover/movie?api_key=${TMDB_API_KEY}&with_genres=${selectedGenreIds.join(',')}&sort_by=vote_average.desc&vote_count.gte=1000&language=en-US&page=${currentPage}&include_adult=false&certification_country=US`;
+
+        // Add year range if specified
+        if (minYear) {
+            apiUrl += `&primary_release_date.gte=${minYear}-01-01`;
+        }
+        if (maxYear) {
+            apiUrl += `&primary_release_date.lte=${maxYear}-12-31`;
+        }
+
+        // Add rating filter if specified
+        if (minRating) {
+            apiUrl += `&vote_average.gte=${minRating}`;
+        }
+
+        // Add age rating filter if specified
+        if (ageRating) {
+            apiUrl += `&certification=${ageRating}`;
+        }
+
+        currentSearchParams = { 
+            genreIds: selectedGenreIds,
+            minYear,
+            maxYear,
+            minRating,
+            ageRating
+        };
         
-        const moviesResponse = await fetch(
-            `${TMDB_BASE_URL}/discover/movie?api_key=${TMDB_API_KEY}&with_genres=${selectedGenreIds.join(',')}&sort_by=vote_average.desc&vote_count.gte=1000&language=en-US&page=${currentPage}&include_adult=false&certification_country=US`
-        );
+        const moviesResponse = await fetch(apiUrl);
         
         if (!moviesResponse.ok) {
             throw new Error(`HTTP error! status: ${moviesResponse.status}`);
@@ -140,9 +203,28 @@ async function loadMoreMovies() {
                 `${TMDB_BASE_URL}/movie/${currentSearchParams.movieId}/similar?api_key=${TMDB_API_KEY}&page=${currentPage}&include_adult=false&certification_country=US`
             );
         } else {
-            response = await fetch(
-                `${TMDB_BASE_URL}/discover/movie?api_key=${TMDB_API_KEY}&with_genres=${currentSearchParams.genreIds.join(',')}&sort_by=vote_average.desc&vote_count.gte=1000&language=en-US&page=${currentPage}&include_adult=false&certification_country=US`
-            );
+            // Build the API URL with filters
+            let apiUrl = `${TMDB_BASE_URL}/discover/movie?api_key=${TMDB_API_KEY}&with_genres=${currentSearchParams.genreIds.join(',')}&sort_by=vote_average.desc&vote_count.gte=1000&language=en-US&page=${currentPage}&include_adult=false&certification_country=US`;
+
+            // Add year range if specified
+            if (currentSearchParams.minYear) {
+                apiUrl += `&primary_release_date.gte=${currentSearchParams.minYear}-01-01`;
+            }
+            if (currentSearchParams.maxYear) {
+                apiUrl += `&primary_release_date.lte=${currentSearchParams.maxYear}-12-31`;
+            }
+
+            // Add rating filter if specified
+            if (currentSearchParams.minRating) {
+                apiUrl += `&vote_average.gte=${currentSearchParams.minRating}`;
+            }
+
+            // Add age rating filter if specified
+            if (currentSearchParams.ageRating) {
+                apiUrl += `&certification=${currentSearchParams.ageRating}`;
+            }
+
+            response = await fetch(apiUrl);
         }
         
         const data = await response.json();
@@ -284,7 +366,20 @@ async function displayMovies(movies, append = false) {
         return;
     }
 
-    for (const movie of movies) {
+    // Get watch history
+    const savedProfile = localStorage.getItem(`userProfile_${USER_ID}`);
+    const userProfile = savedProfile ? JSON.parse(savedProfile) : { watchHistory: [] };
+    const watchHistoryIds = userProfile.watchHistory.map(item => item.id);
+
+    // Filter out movies that are in watch history
+    const filteredMovies = movies.filter(movie => !watchHistoryIds.includes(movie.id));
+
+    if (filteredMovies.length === 0) {
+        resultsDiv.innerHTML = '<p>No new movies found matching your criteria. Try different filters or check your watch history!</p>';
+        return;
+    }
+
+    for (const movie of filteredMovies) {
         const movieElement = await createMovieElement(movie);
         resultsDiv.appendChild(movieElement);
     }
@@ -327,7 +422,7 @@ window.addToWatchHistory = async function(movie) {
         const savedProfile = localStorage.getItem(`userProfile_${USER_ID}`);
         let userProfile = savedProfile ? JSON.parse(savedProfile) : { watchHistory: [] };
         
-        if (!userProfile.watchHistory) {
+        if (!Array.isArray(userProfile.watchHistory)) {
             userProfile.watchHistory = [];
         }
         
@@ -376,7 +471,7 @@ window.addToWatchHistory = async function(movie) {
         
         alert('Added to watch history!');
     } catch (error) {
-        console.error('Error adding to watch history:', error);
+        console.error('Error adding to watch history:', error, movie);
         alert('Error adding to watch history. Please try again.');
     }
 };
@@ -395,6 +490,19 @@ window.toggleDropdown = function(button) {
     }
 };
 
+window.addToWatchlist = function(type, item) {
+    const watchlist = JSON.parse(localStorage.getItem(type + 'Watchlist')) || [];
+    // Check if item is already in watchlist
+    if (watchlist.some(existingItem => existingItem.id === item.id)) {
+        alert('This item is already in your watchlist!');
+        return;
+    }
+    // Add to watchlist
+    watchlist.push(item);
+    localStorage.setItem(type + 'Watchlist', JSON.stringify(watchlist));
+    alert('Added to watchlist!');
+};
+
 async function createMovieElement(movie) {
     const element = document.createElement('div');
     element.className = 'result-item';
@@ -402,7 +510,21 @@ async function createMovieElement(movie) {
     const certification = await getMovieCertification(movie.id);
     const streamingInfo = await getStreamingInfo(movie.id);
     const trailerUrl = await getTrailerUrl(movie.id);
-    
+
+    // Get user profile and watch history
+    const savedProfile = localStorage.getItem(`userProfile_${USER_ID}`);
+    let userProfile = savedProfile ? JSON.parse(savedProfile) : { watchHistory: [] };
+    if (!Array.isArray(userProfile.watchHistory)) {
+        userProfile.watchHistory = [];
+    }
+    let watchEntry = userProfile.watchHistory.find(m => m.id === movie.id);
+    let userReaction = watchEntry ? watchEntry.reaction : null;
+
+    // Helper for reaction button highlight
+    function getReactionClass(type) {
+        return userReaction === type ? 'reaction-selected' : '';
+    }
+
     element.innerHTML = `
         <div class="movie-content">
             <div class="movie-header">
@@ -437,14 +559,45 @@ async function createMovieElement(movie) {
             </div>
 
             <div class="movie-actions">
-                <button onclick="addToWatchHistory(${JSON.stringify(movie).replace(/"/g, '&quot;')})" class="choice-btn">Add to Watch History</button>
+                <button onclick="addToWatchHistory(${JSON.stringify(movie).replace(/"/g, '&quot;')})" class="choice-btn add-history-btn">Add to Watch History</button>
                 <button onclick="addToWatchlist('movie', ${JSON.stringify(movie).replace(/"/g, '&quot;')})" class="watchlist-btn">Add to Watchlist</button>
                 <button onclick="surpriseMe(${JSON.stringify(movie).replace(/"/g, '&quot;')})" class="surprise-btn">Surprise Me</button>
             </div>
+            ${watchEntry ? `
+            <div class="reaction-section">
+                <div class="reaction-label">You've seen this! Did you like it?</div>
+                <div class="reaction-buttons">
+                    <button class="reaction-btn ${getReactionClass('like')}" data-reaction="like" title="Like">👍</button>
+                    <button class="reaction-btn ${getReactionClass('meh')}" data-reaction="meh" title="Meh">😐</button>
+                    <button class="reaction-btn ${getReactionClass('dislike')}" data-reaction="dislike" title="Didn't like">👎</button>
+                </div>
+            </div>
+            ` : ''}
         </div>
         ${movie.poster_path ? `<img src="https://image.tmdb.org/t/p/w200${movie.poster_path}" alt="${movie.title} poster">` : ''}
     `;
-    
+
+    // Add event listeners for reaction buttons if present
+    if (watchEntry) {
+        const btns = element.querySelectorAll('.reaction-btn');
+        btns.forEach(btn => {
+            btn.onclick = function() {
+                const reaction = btn.getAttribute('data-reaction');
+                // Update reaction in localStorage
+                const savedProfile = localStorage.getItem(`userProfile_${USER_ID}`);
+                let userProfile = savedProfile ? JSON.parse(savedProfile) : { watchHistory: [] };
+                let entryIdx = userProfile.watchHistory.findIndex(m => m.id === movie.id);
+                if (entryIdx !== -1) {
+                    userProfile.watchHistory[entryIdx].reaction = reaction;
+                    localStorage.setItem(`userProfile_${USER_ID}`, JSON.stringify(userProfile));
+                    // Update UI
+                    btns.forEach(b => b.classList.remove('reaction-selected'));
+                    btn.classList.add('reaction-selected');
+                }
+            };
+        });
+    }
+
     return element;
 }
 
@@ -483,19 +636,4 @@ function surpriseMe(currentMovie) {
     `;
     
     document.body.appendChild(modal);
-}
-
-function addToWatchlist(type, item) {
-    const watchlist = JSON.parse(localStorage.getItem(type + 'Watchlist')) || [];
-    
-    // Check if item is already in watchlist
-    if (watchlist.some(existingItem => existingItem.id === item.id)) {
-        alert('This item is already in your watchlist!');
-        return;
-    }
-    
-    // Add to watchlist
-    watchlist.push(item);
-    localStorage.setItem(type + 'Watchlist', JSON.stringify(watchlist));
-    alert('Added to watchlist!');
 } 

@@ -1,5 +1,16 @@
+import { auth, db } from './firebase-config.js';
+import { 
+    doc, 
+    getDoc, 
+    updateDoc,
+    arrayUnion,
+    arrayRemove
+} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { supabase } from './supabase-config.js';
+
 const USER_ID = 'user1'; // In a real app, this would come from authentication
-let currentFilter = 'all';
+let currentMovieFilter = 'all';
+let currentShowFilter = 'all';
 
 // TMDB API configuration
 const TMDB_API_KEY = '8c247ea0b4b56ed2ff7d41c9a833aa77';
@@ -12,10 +23,10 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // Function to show/hide tabs
-function showTab(tabName) {
+function showTab(tab) {
     // Hide all tab contents
-    document.querySelectorAll('.tab-content').forEach(tab => {
-        tab.classList.remove('active');
+    document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.remove('active');
     });
     
     // Remove active class from all tab buttons
@@ -23,9 +34,30 @@ function showTab(tabName) {
         btn.classList.remove('active');
     });
     
-    // Show selected tab content and activate its button
-    document.getElementById(tabName + 'Tab').classList.add('active');
+    // Show selected tab content
+    document.getElementById(tab + 'Tab').classList.add('active');
+    
+    // Add active class to selected tab button
     event.target.classList.add('active');
+}
+
+function filterWatchlist(filter, type) {
+    // Update current filter
+    if (type === 'movie') {
+        currentMovieFilter = filter;
+    } else {
+        currentShowFilter = filter;
+    }
+
+    // Update active filter button
+    const filterSection = event.target.parentElement;
+    filterSection.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    event.target.classList.add('active');
+
+    // Reload watchlist with new filter
+    loadWatchlist();
 }
 
 async function getTrailerUrl(id, type) {
@@ -54,13 +86,17 @@ async function loadWatchlist() {
         console.log('Movie watchlist:', movieWatchlist);
         console.log('Show watchlist:', showWatchlist);
 
+        // Apply filters
+        const filteredMovies = filterItems(movieWatchlist, currentMovieFilter);
+        const filteredShows = filterItems(showWatchlist, currentShowFilter);
+
         // Display watchlist immediately without fetching ratings
-        displayWatchlist(movieWatchlist, showWatchlist);
+        displayWatchlist(filteredMovies, filteredShows);
 
         // Then fetch ratings in the background
         try {
             // Fetch age ratings for movies
-            const moviesWithRatings = await Promise.all(movieWatchlist.map(async (movie) => {
+            const moviesWithRatings = await Promise.all(filteredMovies.map(async (movie) => {
                 try {
                     const ratingResponse = await fetch(
                         `${TMDB_BASE_URL}/movie/${movie.id}/release_dates?api_key=${TMDB_API_KEY}`
@@ -77,7 +113,7 @@ async function loadWatchlist() {
             }));
 
             // Fetch age ratings for shows
-            const showsWithRatings = await Promise.all(showWatchlist.map(async (show) => {
+            const showsWithRatings = await Promise.all(filteredShows.map(async (show) => {
                 try {
                     const ratingResponse = await fetch(
                         `${TMDB_BASE_URL}/tv/${show.id}/content_ratings?api_key=${TMDB_API_KEY}`
@@ -428,5 +464,113 @@ async function findSimilarShows(showId) {
     } catch (error) {
         console.error('Error finding recommended shows:', error);
         return [];
+    }
+}
+
+// Get user's watchlist from Supabase
+async function getWatchlist() {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+        if (localStorage.getItem('currentUser') === 'Guest') {
+            return JSON.parse(localStorage.getItem('guestWatchlist')) || [];
+        }
+        window.location.href = 'login.html';
+        return [];
+    }
+
+    try {
+        const { data, error } = await supabase
+            .from('profiles')
+            .select('watchlist')
+            .eq('id', session.user.id)
+            .single();
+
+        if (error) throw error;
+        return data.watchlist || [];
+    } catch (error) {
+        console.error("Error getting watchlist:", error);
+        return [];
+    }
+}
+
+// Add show to watchlist
+async function addToWatchlist(show) {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+        if (localStorage.getItem('currentUser') === 'Guest') {
+            const guestWatchlist = JSON.parse(localStorage.getItem('guestWatchlist')) || [];
+            guestWatchlist.push(show);
+            localStorage.setItem('guestWatchlist', JSON.stringify(guestWatchlist));
+            return;
+        }
+        window.location.href = 'login.html';
+        return;
+    }
+
+    try {
+        const { error } = await supabase
+            .from('profiles')
+            .update({
+                watchlist: supabase.sql`array_append(watchlist, ${show})`
+            })
+            .eq('id', session.user.id);
+
+        if (error) throw error;
+    } catch (error) {
+        console.error("Error adding to watchlist:", error);
+    }
+}
+
+// Remove show from watchlist
+async function removeFromWatchlist(showId) {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+        if (localStorage.getItem('currentUser') === 'Guest') {
+            const guestWatchlist = JSON.parse(localStorage.getItem('guestWatchlist')) || [];
+            const updatedWatchlist = guestWatchlist.filter(show => show.id !== showId);
+            localStorage.setItem('guestWatchlist', JSON.stringify(updatedWatchlist));
+            return;
+        }
+        window.location.href = 'login.html';
+        return;
+    }
+
+    try {
+        // First get the current watchlist
+        const { data, error: fetchError } = await supabase
+            .from('profiles')
+            .select('watchlist')
+            .eq('id', session.user.id)
+            .single();
+
+        if (fetchError) throw fetchError;
+
+        // Remove the show from the array
+        const updatedWatchlist = data.watchlist.filter(show => show.id !== showId);
+
+        // Update the watchlist
+        const { error: updateError } = await supabase
+            .from('profiles')
+            .update({ watchlist: updatedWatchlist })
+            .eq('id', session.user.id);
+
+        if (updateError) throw updateError;
+    } catch (error) {
+        console.error("Error removing from watchlist:", error);
+    }
+}
+
+function filterItems(items, filter) {
+    switch (filter) {
+        case 'recent':
+            return [...items].sort((a, b) => {
+                const dateA = new Date(a.addedDate || 0);
+                const dateB = new Date(b.addedDate || 0);
+                return dateB - dateA;
+            });
+        case 'rating':
+            return [...items].sort((a, b) => (b.vote_average || 0) - (a.vote_average || 0));
+        default:
+            return items;
     }
 } 
